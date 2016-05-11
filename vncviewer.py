@@ -2,14 +2,14 @@
 """
 VNC to Flaschen-Taschen bridge.
 
-
+Usage:
+  python vncviewer.py -h 127.0.0.1 -p 'password'
 
 Based on code by Chris Liechti: http://homepage.hispeed.ch/py430/python/
 
 MIT License
 """
 
-#FLASCHEN_HOST = 'ft.noise'
 FLASCHEN_HOST = 'localhost'
 FLASCHEN_PORT = 1337
 FLASCHEN_WIDTH = 45
@@ -64,11 +64,7 @@ class RFBToGUI(rfb.RFBClient):
         blank_data = "\x00" * (4 * self.width * self.height)
         self.full_fb = Image.new('RGB', (self.width, self.height))
 
-        self.ft = flaschen.Flaschen(FLASCHEN_HOST,
-                                    FLASCHEN_PORT,
-                                    FLASCHEN_WIDTH,
-                                    FLASCHEN_HEIGHT,
-                                    FLASCHEN_LAYER)
+        self.ft = self.factory.ft
 
         self.framerate = FramerateCalculator()
 
@@ -125,8 +121,9 @@ class RFBToGUI(rfb.RFBClient):
 class VNCFactory(rfb.RFBFactory):
     """A factory for remote frame buffer connections."""
     
-    def __init__(self, depth, fast, *args, **kwargs):
+    def __init__(self, ft, depth, fast, *args, **kwargs):
         rfb.RFBFactory.__init__(self, *args, **kwargs)
+        self.ft = ft
         if depth == 32:
             self.protocol = RFBToGUI
         else:
@@ -161,7 +158,12 @@ class VNCFactory(rfb.RFBFactory):
 class Options(usage.Options):
     optParameters = [
         ['display',     'd', '0',               'VNC display'],
-        ['host',        'h', None,              'remote hostname'],
+        ['vnchost',     'h', 'localhost',       'vnc remote hostname'],
+        ['fthost',      't', 'localhost',       'flaschen taschen hostname'],
+        ['ftport',      None, 1337,              'flaschen taschen port'],
+        ['width',       None, 45,                'flaschen taschen width'],
+        ['height',      None, 35,                'flaschen taschen height'],
+        ['layer',       None, 0,                'flaschen taschen layer'],
         ['outfile',     'o', None,              'Logfile [default: sys.stdout]'],
         ['password',    'p', None,              'VNC password'],
         ['depth',       'D', '32',              'Color depth'],
@@ -187,7 +189,7 @@ def main():
         logFile = o.opts['outfile']
     log.startLogging(logFile)
     
-    host = o.opts['host']
+    host = o.opts['vnchost']
     display = int(o.opts['display'])
     if host is None:
         if host == '':
@@ -197,11 +199,18 @@ def main():
             if host == '':  host = 'localhost'
             display = int(display)
 
+    ft = flaschen.Flaschen(FLASCHEN_HOST,
+                           FLASCHEN_PORT,
+                           FLASCHEN_WIDTH,
+                           FLASCHEN_HEIGHT,
+                           FLASCHEN_LAYER)
+
     # connect to this host and port, and reconnect if we get disconnected
     reactor.connectTCP(
         host,                                   #remote hostname
         display + 5900,                         #TCP port number
         VNCFactory(
+                ft,
                 depth,                          #color depth
                 o.opts['fast'],                 #if a fast connection is used
                 o.opts['password'],             #password or none
