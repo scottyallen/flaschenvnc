@@ -34,18 +34,18 @@ import rfb
 
 class FramerateCalculator(object):
 
-  def __init__(self, smoothing=0.9):
-    self._smoothing = smoothing
-    self._last_frame = None
-    self.framerate = None
+    def __init__(self, smoothing=0.9):
+        self._smoothing = smoothing
+        self._last_frame = None
+        self.framerate = None
 
-  def increment(self):
-    if self._last_frame is not None:
-      delta = time.time() - self._last_frame
-      if not self.framerate:
-        self.framerate = 1.0 / delta
-      self.framerate = (self.framerate * self._smoothing) + ( (1.0 / delta) * (1.0 - self._smoothing))
-    self._last_frame = time.time()
+    def increment(self):
+        if self._last_frame is not None:
+            delta = time.time() - self._last_frame
+            if not self.framerate:
+                self.framerate = 1.0 / delta
+            self.framerate = (self.framerate * self._smoothing) + ( (1.0 / delta) * (1.0 - self._smoothing))
+        self._last_frame = time.time()
 
 class RFBToGUI(rfb.RFBClient):
     """RFBClient protocol that talks to the GUI app"""
@@ -58,7 +58,7 @@ class RFBToGUI(rfb.RFBClient):
 
         self.full_fb = []
         for x in xrange(self.width):
-          self.full_fb.append([(0, 0, 0) for y in xrange(self.height)])
+            self.full_fb.append([(0, 0, 0) for y in xrange(self.height)])
 
         blank_data = "\x00" * (4 * self.width * self.height)
         self.full_fb = Image.new('RGB', (self.width, self.height))
@@ -73,8 +73,8 @@ class RFBToGUI(rfb.RFBClient):
 
         # Clear the FT to start
         for y in xrange(0, 35):
-          for x in xrange(0, 45):
-            self.ft.set(x, y, (0, 0, 0))
+            for x in xrange(0, 45):
+                self.ft.set(x, y, (0, 0, 0))
         self.ft.show()
 
     def vncRequestPassword(self):
@@ -86,22 +86,20 @@ class RFBToGUI(rfb.RFBClient):
         pass
 
     def commitUpdate(self, rectangles = None):
-        print "commit"
         """finish series of display updates"""
         self.framebufferUpdateRequest(incremental=1)
         img = self.full_fb.resize( (FLASCHEN_WIDTH, FLASCHEN_HEIGHT), resample=Image.LANCZOS )
         for x in xrange(0, FLASCHEN_WIDTH):
-          for y in xrange(0, FLASCHEN_HEIGHT):
-            r, g, b = img.getpixel( (x, y) )
-            self.ft.set(x, y, (r, g, b))
+            for y in xrange(0, FLASCHEN_HEIGHT):
+                r, g, b = img.getpixel( (x, y) )
+                self.ft.set(x, y, (r, g, b))
         self.ft.show()
         self.framerate.increment()
         if self.framerate.framerate is not None:
-          print "Framerate: %.01f" % self.framerate.framerate
+            print "Framerate: %.01f" % self.framerate.framerate
 
     def updateRectangle(self, x, y, width, height, data):
         """new bitmap data"""
-        #~ print "%s " * 5 % (x, y, width, height, len(data))
         img = Image.frombytes('RGBA', (width, height), data)     #TODO color format
         #~ log.msg("screen update")
 
@@ -112,7 +110,6 @@ class RFBToGUI(rfb.RFBClient):
 
     def copyRectangle(self, srcx, srcy, x, y, width, height):
         """copy src rectangle -> destinantion"""
-        #~ print "copyrect", (srcx, srcy, x, y, width, height)
         img = self.full_fb.crop( (srcx, srcy, width, height) )
         self.full_fb.paste(
             img,
