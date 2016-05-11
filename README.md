@@ -8,7 +8,7 @@ To install:
 
 Usage:
 
-  python vncviewer.py -h 127.0.0.1 -p 'password'
+  python flaschenvnc.py -h 127.0.0.1 -p 'password'
 
 Note:
 

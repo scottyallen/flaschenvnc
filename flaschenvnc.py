@@ -3,7 +3,7 @@
 VNC to Flaschen-Taschen bridge.
 
 Usage:
-  python vncviewer.py -h 127.0.0.1 -p 'password'
+  python flaschenvnc.py -h 127.0.0.1 -p 'password'
 
 Based on code by Chris Liechti: http://homepage.hispeed.ch/py430/python/
 
