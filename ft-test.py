@@ -1,6 +1,6 @@
 import flaschen
 
-UDP_IP = 'ft.noise'
+UDP_IP = 'localhost'
 UDP_PORT = 1337
 
 ft = flaschen.Flaschen(UDP_IP, UDP_PORT, 45, 35)
