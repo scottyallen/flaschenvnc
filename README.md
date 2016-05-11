@@ -1,5 +1,11 @@
 VNC to Flaschen Taschen bridge
 
+Requires Twisted and PIL
+
+To install:
+
+  pip install -r requirements.txt
+
 Usage:
 
   python vncviewer.py -h 127.0.0.1 -p 'password'
