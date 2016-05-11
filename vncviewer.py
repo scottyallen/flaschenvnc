@@ -359,35 +359,6 @@ class RFBToGUI(rfb.RFBClient):
     def copy_text(self, text):
         print "Clipboard: %r" % text
 
-#use a derrived class for other depths. hopefully with better performance
-#that a single class with complicated/dynamic color conversion.
-class RFBToGUIeightbits(RFBToGUI):
-    def vncConnectionMade(self):
-        """choose appropriate color depth, resize screen"""
-        self.remoteframebuffer = self.factory.remoteframebuffer
-        self.screen = self.remoteframebuffer.screen
-        self.remoteframebuffer.setProtocol(self)
-        self.remoteframebuffer.setRFBSize(self.width, self.height, 8)
-        self.setEncodings(self.factory.encodings)
-        self.setPixelFormat(bpp=8, depth=8, bigendian=0, truecolor=1,
-            redmax=7,   greenmax=7,   bluemax=3,
-            redshift=5, greenshift=2, blueshift=0
-        )
-        self.palette = self.screen.get_palette()
-        self.framebufferUpdateRequest()
-
-    def updateRectangle(self, x, y, width, height, data):
-        """new bitmap data"""
-        #~ print "%s " * 5 % (x, y, width, height, len(data))
-        #~ assert len(data) == width*height
-        bmp = pygame.image.fromstring(data, (width, height), 'P')
-        bmp.set_palette(self.palette)
-        self.screen.blit(bmp, (x, y))
-
-    def fillRectangle(self, x, y, width, height, color):
-        """fill rectangle with one color"""
-        self.screen.fill(ord(color), (x, y, width, height))
-
 class VNCFactory(rfb.RFBFactory):
     """A factory for remote frame buffer connections."""
     
@@ -396,8 +367,6 @@ class VNCFactory(rfb.RFBFactory):
         self.remoteframebuffer = remoteframebuffer
         if depth == 32:
             self.protocol = RFBToGUI
-        elif depth == 8:
-            self.protocol = RFBToGUIeightbits
         else:
             raise ValueError, "color depth not supported"
             
@@ -414,7 +383,6 @@ class VNCFactory(rfb.RFBFactory):
                 rfb.RRE_ENCODING,
                 rfb.RAW_ENCODING,
             ]
-
 
     def buildProtocol(self, addr):
         display = addr.port - 5900
