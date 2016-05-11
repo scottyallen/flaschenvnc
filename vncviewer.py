@@ -7,6 +7,15 @@ PyGame version
 MIT License
 """
 
+#FLASCHEN_HOST = 'ft.noise'
+FLASCHEN_HOST = 'localhost'
+FLASCHEN_PORT = 1337
+FLASCHEN_WIDTH = 45
+FLASCHEN_HEIGHT = 35
+FLASCHEN_LAYER = 1
+
+import flaschen
+
 #twisted modules
 from twisted.python import usage, log
 from twisted.internet import reactor, protocol
@@ -248,7 +257,7 @@ class PyGameApp:
 
 class RFBToGUI(rfb.RFBClient):
     """RFBClient protocol that talks to the GUI app"""
-    
+
     def vncConnectionMade(self):
         """choose appropriate color depth, resize screen"""
         #~ print "Screen format: depth=%d bytes_per_pixel=%r" % (self.depth, self.bpp)
@@ -264,6 +273,23 @@ class RFBToGUI(rfb.RFBClient):
         self.setEncodings(self.factory.encodings)
         self.setPixelFormat()           #set up pixel format to 32 bits
         self.framebufferUpdateRequest() #request initial screen update
+
+        self.full_fb = []
+        for x in xrange(self.width):
+          self.full_fb.append([(0, 0, 0) for y in xrange(self.height)])
+
+        blank_data = "\x00" * (4 * self.width * self.height)
+        self.full_fb = pygame.image.frombuffer(blank_data, (self.width, self.height), 'RGBX')
+
+        self.ft = flaschen.Flaschen(FLASCHEN_HOST,
+                                    FLASCHEN_PORT,
+                                    FLASCHEN_WIDTH,
+                                    FLASCHEN_HEIGHT,
+                                    FLASCHEN_LAYER)
+        for y in xrange(0, 35):
+          for x in xrange(0, 45):
+            self.ft.set(x, y, (0, 0, 0))
+        self.ft.show()
 
     def vncRequestPassword(self):
         if self.factory.password is not None:
@@ -286,13 +312,25 @@ class RFBToGUI(rfb.RFBClient):
         #~ log.msg("screen unlock")
         pygame.display.update(rectangles)
         self.framebufferUpdateRequest(incremental=1)
+        img = pygame.transform.smoothscale(self.full_fb, (FLASCHEN_WIDTH, FLASCHEN_HEIGHT))
+        for x in xrange(0, FLASCHEN_WIDTH):
+          for y in xrange(0, FLASCHEN_HEIGHT):
+            r, g, b, _ = img.get_at( (x, y) )
+            self.ft.set(x, y, (r, g, b))
+        self.ft.show()
 
     def updateRectangle(self, x, y, width, height, data):
         """new bitmap data"""
-        print "%s " * 5 % (x, y, width, height, len(data))
+        #~ print "%s " * 5 % (x, y, width, height, len(data))
+        img = pygame.image.fromstring(data, (width, height), 'RGBX')     #TODO color format
         #~ log.msg("screen update")
         self.screen.blit(
-            pygame.image.fromstring(data, (width, height), 'RGBX'),     #TODO color format
+            img,
+            (x, y)
+        )
+
+        self.full_fb.blit(
+            img,
             (x, y)
         )
 
@@ -304,10 +342,16 @@ class RFBToGUI(rfb.RFBClient):
             (srcx, srcy, width, height)
         )
 
+        self.full_fb.blit(self.full_fb,
+            (x, y),
+            (srcx, srcy, width, height)
+        )
+
     def fillRectangle(self, x, y, width, height, color):
         """fill rectangle with one color"""
         #~ remoteframebuffer.CopyRect(srcx, srcy, x, y, width, height)
         self.screen.fill(struct.unpack("BBBB", color), (x, y, width, height))
+        self.full_fb.fill(struct.unpack("BBBB", color), (x, y, width, height))
 
     def bell(self):
         print "katsching"
