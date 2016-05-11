@@ -24,15 +24,28 @@ from twisted.internet import reactor, protocol
 #~ from twisted.internet import defer
 from twisted.internet.protocol import Factory, Protocol
 
-#import pygame stuff
-import pygame
-from pygame.locals import *
+from PIL import Image
 
 #std stuff
-import sys, struct
+import sys, struct, time
 
 #local
 import rfb
+
+class FramerateCalculator(object):
+
+  def __init__(self, smoothing=0.9):
+    self._smoothing = smoothing
+    self._last_frame = None
+    self.framerate = None
+
+  def increment(self):
+    if self._last_frame is not None:
+      delta = time.time() - self._last_frame
+      if not self.framerate:
+        self.framerate = 1.0 / delta
+      self.framerate = (self.framerate * self._smoothing) + ( (1.0 / delta) * (1.0 - self._smoothing))
+    self._last_frame = time.time()
 
 class RFBToGUI(rfb.RFBClient):
     """RFBClient protocol that talks to the GUI app"""
@@ -48,13 +61,15 @@ class RFBToGUI(rfb.RFBClient):
           self.full_fb.append([(0, 0, 0) for y in xrange(self.height)])
 
         blank_data = "\x00" * (4 * self.width * self.height)
-        self.full_fb = pygame.image.frombuffer(blank_data, (self.width, self.height), 'RGBX')
+        self.full_fb = Image.new('RGB', (self.width, self.height))
 
         self.ft = flaschen.Flaschen(FLASCHEN_HOST,
                                     FLASCHEN_PORT,
                                     FLASCHEN_WIDTH,
                                     FLASCHEN_HEIGHT,
                                     FLASCHEN_LAYER)
+
+        self.framerate = FramerateCalculator()
 
         # Clear the FT to start
         for y in xrange(0, 35):
@@ -71,22 +86,26 @@ class RFBToGUI(rfb.RFBClient):
         pass
 
     def commitUpdate(self, rectangles = None):
+        print "commit"
         """finish series of display updates"""
         self.framebufferUpdateRequest(incremental=1)
-        img = pygame.transform.smoothscale(self.full_fb, (FLASCHEN_WIDTH, FLASCHEN_HEIGHT))
+        img = self.full_fb.resize( (FLASCHEN_WIDTH, FLASCHEN_HEIGHT), resample=Image.LANCZOS )
         for x in xrange(0, FLASCHEN_WIDTH):
           for y in xrange(0, FLASCHEN_HEIGHT):
-            r, g, b, _ = img.get_at( (x, y) )
+            r, g, b = img.getpixel( (x, y) )
             self.ft.set(x, y, (r, g, b))
         self.ft.show()
+        self.framerate.increment()
+        if self.framerate.framerate is not None:
+          print "Framerate: %.01f" % self.framerate.framerate
 
     def updateRectangle(self, x, y, width, height, data):
         """new bitmap data"""
         #~ print "%s " * 5 % (x, y, width, height, len(data))
-        img = pygame.image.fromstring(data, (width, height), 'RGBX')     #TODO color format
+        img = Image.frombytes('RGBA', (width, height), data)     #TODO color format
         #~ log.msg("screen update")
 
-        self.full_fb.blit(
+        self.full_fb.paste(
             img,
             (x, y)
         )
@@ -94,15 +113,16 @@ class RFBToGUI(rfb.RFBClient):
     def copyRectangle(self, srcx, srcy, x, y, width, height):
         """copy src rectangle -> destinantion"""
         #~ print "copyrect", (srcx, srcy, x, y, width, height)
-        self.full_fb.blit(self.full_fb,
-            (x, y),
-            (srcx, srcy, width, height)
+        img = self.full_fb.crop( (srcx, srcy, width, height) )
+        self.full_fb.paste(
+            img,
+            (x, y)
         )
 
     def fillRectangle(self, x, y, width, height, color):
         """fill rectangle with one color"""
         #~ remoteframebuffer.CopyRect(srcx, srcy, x, y, width, height)
-        self.full_fb.fill(struct.unpack("BBBB", color), (x, y, width, height))
+        self.full_fb.paste(struct.unpack("BBBB", color), (x, y, width, height))
 
 class VNCFactory(rfb.RFBFactory):
     """A factory for remote frame buffer connections."""
@@ -130,7 +150,6 @@ class VNCFactory(rfb.RFBFactory):
 
     def buildProtocol(self, addr):
         display = addr.port - 5900
-        pygame.display.set_caption('Python VNC Viewer on %s:%s' % (addr.host, display))
         return rfb.RFBFactory.buildProtocol(self, addr)
 
     def clientConnectionLost(self, connector, reason):
@@ -169,8 +188,6 @@ def main():
     if o.opts['outfile']:
         logFile = o.opts['outfile']
     log.startLogging(logFile)
-    
-    pygame.init()
     
     host = o.opts['host']
     display = int(o.opts['display'])
