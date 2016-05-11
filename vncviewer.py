@@ -14,6 +14,8 @@ FLASCHEN_WIDTH = 45
 FLASCHEN_HEIGHT = 35
 FLASCHEN_LAYER = 1
 
+FRAME_RATE = 2
+
 import flaschen
 
 #twisted modules
@@ -32,70 +34,11 @@ import sys, struct
 #local
 import rfb
 
-#~ class PyGameApp(pb.Referenceable, Game.Game):
-class PyGameApp:
-    """Pygame main application"""
-    
-    def __init__(self):
-        width, height = 640, 480
-        self.setRFBSize(width, height)
-        pygame.display.set_caption('Python VNC Viewer')
-        self.clock = pygame.time.Clock()
-        self.alive = 1
-        self.loopcounter = 0
-        self.sprites = pygame.sprite.RenderUpdates()
-        self.buttons = 0
-        self.protocol = None
-        
-    def setRFBSize(self, width, height, depth=32):
-        """change screen size"""
-        self.width, self.height = width, height
-        self.area = Rect(0, 0, width, height)
-        winstyle = 0  # |FULLSCREEN
-        if depth == 32:
-            self.screen = pygame.display.set_mode(self.area.size, winstyle, 32)
-        else:
-            raise ValueError, "color depth not supported"
-        self.background = pygame.Surface((self.width, self.height), depth)
-        self.background.fill(0) #black
-
-    def setProtocol(self, protocol):
-        """attach a protocol instance to post the events to"""
-        self.protocol = protocol
-
-    def checkEvents(self):
-        """process events from the queue"""
-        seen_events = 0
-        for e in pygame.event.get():
-            seen_events = 1
-            #~ print e
-            if e.type == QUIT:
-                self.alive = 0
-                reactor.stop()
-            if self.protocol is not None:
-              pass
-            return not seen_events
-        return not seen_events
-
-    def mainloop(self, dum=None):
-        """gui 'mainloop', it is called repeated by twisteds mainloop 
-           by using callLater"""
-        no_work = self.checkEvents()
-
-        if self.alive:
-            reactor.callLater(no_work and 0.020, self.mainloop)
-
-
-
 class RFBToGUI(rfb.RFBClient):
     """RFBClient protocol that talks to the GUI app"""
 
     def vncConnectionMade(self):
         """choose appropriate color depth, resize screen"""
-        self.remoteframebuffer = self.factory.remoteframebuffer
-        self.screen = self.remoteframebuffer.screen
-        self.remoteframebuffer.setProtocol(self)
-        self.remoteframebuffer.setRFBSize(self.width, self.height, 32)
         self.setEncodings(self.factory.encodings)
         self.setPixelFormat()           #set up pixel format to 32 bits
         self.framebufferUpdateRequest() #request initial screen update
@@ -112,6 +55,8 @@ class RFBToGUI(rfb.RFBClient):
                                     FLASCHEN_WIDTH,
                                     FLASCHEN_HEIGHT,
                                     FLASCHEN_LAYER)
+
+        # Clear the FT to start
         for y in xrange(0, 35):
           for x in xrange(0, 45):
             self.ft.set(x, y, (0, 0, 0))
@@ -120,10 +65,6 @@ class RFBToGUI(rfb.RFBClient):
     def vncRequestPassword(self):
         if self.factory.password is not None:
             self.sendPassword(self.factory.password)
-        else:
-            #XXX hack, this is blocking twisted!!!!!!!
-            screen = pygame.display.set_mode((220,40))
-            screen.fill((255,100,0)) #redish bg
     
     def beginUpdate(self):
         """begin series of display updates"""
@@ -131,7 +72,6 @@ class RFBToGUI(rfb.RFBClient):
 
     def commitUpdate(self, rectangles = None):
         """finish series of display updates"""
-        pygame.display.update(rectangles)
         self.framebufferUpdateRequest(incremental=1)
         img = pygame.transform.smoothscale(self.full_fb, (FLASCHEN_WIDTH, FLASCHEN_HEIGHT))
         for x in xrange(0, FLASCHEN_WIDTH):
@@ -145,10 +85,6 @@ class RFBToGUI(rfb.RFBClient):
         #~ print "%s " * 5 % (x, y, width, height, len(data))
         img = pygame.image.fromstring(data, (width, height), 'RGBX')     #TODO color format
         #~ log.msg("screen update")
-        self.screen.blit(
-            img,
-            (x, y)
-        )
 
         self.full_fb.blit(
             img,
@@ -158,11 +94,6 @@ class RFBToGUI(rfb.RFBClient):
     def copyRectangle(self, srcx, srcy, x, y, width, height):
         """copy src rectangle -> destinantion"""
         #~ print "copyrect", (srcx, srcy, x, y, width, height)
-        self.screen.blit(self.screen,
-            (x, y),
-            (srcx, srcy, width, height)
-        )
-
         self.full_fb.blit(self.full_fb,
             (x, y),
             (srcx, srcy, width, height)
@@ -171,21 +102,13 @@ class RFBToGUI(rfb.RFBClient):
     def fillRectangle(self, x, y, width, height, color):
         """fill rectangle with one color"""
         #~ remoteframebuffer.CopyRect(srcx, srcy, x, y, width, height)
-        self.screen.fill(struct.unpack("BBBB", color), (x, y, width, height))
         self.full_fb.fill(struct.unpack("BBBB", color), (x, y, width, height))
-
-    def bell(self):
-        print "katsching"
-
-    def copy_text(self, text):
-        print "Clipboard: %r" % text
 
 class VNCFactory(rfb.RFBFactory):
     """A factory for remote frame buffer connections."""
     
-    def __init__(self, remoteframebuffer, depth, fast, *args, **kwargs):
+    def __init__(self, depth, fast, *args, **kwargs):
         rfb.RFBFactory.__init__(self, *args, **kwargs)
-        self.remoteframebuffer = remoteframebuffer
         if depth == 32:
             self.protocol = RFBToGUI
         else:
@@ -248,14 +171,10 @@ def main():
     log.startLogging(logFile)
     
     pygame.init()
-    remoteframebuffer = PyGameApp()
     
     host = o.opts['host']
     display = int(o.opts['display'])
     if host is None:
-        screen = pygame.display.set_mode((220,40))
-        screen.fill((0,100,255)) #blue bg
-        #host = inputbox.ask(screen, "Host")
         if host == '':
             raise SystemExit
         if ':' in host:
@@ -268,7 +187,6 @@ def main():
         host,                                   #remote hostname
         display + 5900,                         #TCP port number
         VNCFactory(
-                remoteframebuffer,              #the application/display
                 depth,                          #color depth
                 o.opts['fast'],                 #if a fast connection is used
                 o.opts['password'],             #password or none
@@ -277,7 +195,6 @@ def main():
     )
 
     # run the application
-    reactor.callLater(0.1, remoteframebuffer.mainloop)
     reactor.run()
 
 
