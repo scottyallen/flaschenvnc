@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 """
-Python VNC Viewer
-PyGame version
-(C) 2003 <cliechti@gmx.net>
+VNC to Flaschen-Taschen bridge.
+
+
+
+Based on code by Chris Liechti: http://homepage.hispeed.ch/py430/python/
 
 MIT License
 """
@@ -14,8 +16,6 @@ FLASCHEN_WIDTH = 45
 FLASCHEN_HEIGHT = 35
 FLASCHEN_LAYER = 1
 
-FRAME_RATE = 2
-
 import flaschen
 
 #twisted modules
@@ -24,6 +24,7 @@ from twisted.internet import reactor, protocol
 #~ from twisted.internet import defer
 from twisted.internet.protocol import Factory, Protocol
 
+# PIL
 from PIL import Image
 
 #std stuff
