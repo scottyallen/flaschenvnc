@@ -10,6 +10,7 @@ Based on code by Chris Liechti: http://homepage.hispeed.ch/py430/python/
 MIT License
 """
 
+SHOW_FRAMERATE_EVERY = 1
 
 import flaschen
 
@@ -62,6 +63,7 @@ class RFBToGUI(rfb.RFBClient):
         self.ft = self.factory.ft
 
         self.framerate = FramerateCalculator()
+        self.last_framerate_time = time.time()
 
         # Clear the FT to start
         for y in xrange(0, 35):
@@ -87,8 +89,10 @@ class RFBToGUI(rfb.RFBClient):
                 self.ft.set(x, y, (r, g, b))
         self.ft.show()
         self.framerate.increment()
-        if self.framerate.framerate is not None:
+        delta = time.time() - self.last_framerate_time
+        if self.framerate.framerate is not None and delta > SHOW_FRAMERATE_EVERY:
             print "Framerate: %.01f" % self.framerate.framerate
+            self.last_framerate_time = time.time()
 
     def updateRectangle(self, x, y, width, height, data):
         """new bitmap data"""
