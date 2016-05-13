@@ -82,7 +82,7 @@ class RFBToGUI(rfb.RFBClient):
     def commitUpdate(self, rectangles = None):
         """finish series of display updates"""
         self.framebufferUpdateRequest(incremental=1)
-        img = self.full_fb.resize( (self.ft.width, self.ft.height), resample=Image.LANCZOS )
+        img = self.full_fb.resize( (self.ft.width, self.ft.height), resample=Image.BILINEAR )
         for x in xrange(0, self.ft.width):
             for y in xrange(0, self.ft.height):
                 r, g, b = img.getpixel( (x, y) )
