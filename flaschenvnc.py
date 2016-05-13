@@ -10,11 +10,6 @@ Based on code by Chris Liechti: http://homepage.hispeed.ch/py430/python/
 MIT License
 """
 
-FLASCHEN_HOST = 'localhost'
-FLASCHEN_PORT = 1337
-FLASCHEN_WIDTH = 45
-FLASCHEN_HEIGHT = 35
-FLASCHEN_LAYER = 1
 
 import flaschen
 
@@ -85,9 +80,9 @@ class RFBToGUI(rfb.RFBClient):
     def commitUpdate(self, rectangles = None):
         """finish series of display updates"""
         self.framebufferUpdateRequest(incremental=1)
-        img = self.full_fb.resize( (FLASCHEN_WIDTH, FLASCHEN_HEIGHT), resample=Image.LANCZOS )
-        for x in xrange(0, FLASCHEN_WIDTH):
-            for y in xrange(0, FLASCHEN_HEIGHT):
+        img = self.full_fb.resize( (self.ft.width, self.ft.height), resample=Image.LANCZOS )
+        for x in xrange(0, self.ft.width):
+            for y in xrange(0, self.ft.height):
                 r, g, b = img.getpixel( (x, y) )
                 self.ft.set(x, y, (r, g, b))
         self.ft.show()
@@ -199,11 +194,11 @@ def main():
             if host == '':  host = 'localhost'
             display = int(display)
 
-    ft = flaschen.Flaschen(FLASCHEN_HOST,
-                           FLASCHEN_PORT,
-                           FLASCHEN_WIDTH,
-                           FLASCHEN_HEIGHT,
-                           FLASCHEN_LAYER)
+    ft = flaschen.Flaschen(o.opts['fthost'],
+                           o.opts['ftport'],
+                           o.opts['width'],
+                           o.opts['height'],
+                           int(o.opts['layer']))
 
     # connect to this host and port, and reconnect if we get disconnected
     reactor.connectTCP(
